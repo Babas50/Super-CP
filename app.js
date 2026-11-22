@@ -264,7 +264,7 @@ function mkMots(i,L){
   }
   const ch=[w,...pick(P.filter(x=>x!==w&&x[1][0]!==w[1][0]),n-1)];
   return {key:w[1],say:w[1],title:'Écoute et trouve le mot écrit',
-    vis:`<div class="big" style="font-size:clamp(3rem,16vw,6rem)">🔊</div><div style="font-weight:800">Touche le haut-parleur pour réécouter</div>`,
+    vis:`<button class="repbig" id="rep2" aria-label="Réécouter">🔊</button><div style="font-weight:800;font-size:1.2rem">Touche pour réécouter</div>`,
     choices:shuffle(ch).map(x=>({h:`<b>${x[1]}</b>`,ok:x===w,t:1})),cols:1};
 }
 function mkCompter(i,L){
@@ -353,7 +353,7 @@ function distract(w,pool,n,L){
   return out;
 }
 function mkEnEcoute(i,L){
-  const vis=`<div class="big" style="font-size:clamp(3rem,16vw,6rem)">👂</div><div style="font-weight:800">Touche 🔊 en haut pour réécouter</div>`;
+  const vis=`<button class="repbig" id="rep2" aria-label="Réécouter">🔊</button><div style="font-weight:800;font-size:1.2rem">Touche pour réécouter</div>`;
   if(L===2){
     const E=SENT_EN.filter(x=>x[3]),s=E[rnd(E.length)],ch=[s,...pick(E.filter(x=>x!==s),3)];
     return {key:s[0],lang:'en',say:s[0],title:'Écoute la phrase et trouve l\'image',vis,
@@ -518,6 +518,7 @@ function render(){
   updBadge();
   $('#back').onclick=()=>{try{speechSynthesis.cancel()}catch(e){};G.back()};
   $('#rep').onclick=()=>speakL(q.say,q.lang);
+  if($('#rep2'))$('#rep2').onclick=()=>speakL(q.say,q.lang);
   const g0=G,adv=ms=>setTimeout(()=>{if(G!==g0)return;G.i++;nextQ()},ms);
   const needNext=()=>setTimeout(()=>{
     if(G!==g0||!document.body.contains(el))return;

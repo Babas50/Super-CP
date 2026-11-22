@@ -179,6 +179,22 @@ h3.sec{margin:10px 6px 6px;color:#fff;font-size:1.2rem;text-shadow:0 2px 0 rgba(
 .nxt:disabled{opacity:.6}
 
 .zi{height:1.3em;width:1.3em;vertical-align:-.25em}
+
+/* v7 : enceinte et images bien visibles sur mobile */
+.bar{flex-wrap:nowrap}
+.bar .ib{flex:none}
+.dots{min-width:0;gap:4px}
+.dots i{flex:none;width:clamp(10px,3.2vw,22px);height:clamp(10px,3.2vw,22px)}
+.badge:empty{display:none}
+#rep{width:60px;height:60px;box-sizing:border-box;font-size:2rem;background:#fde047;border:4px solid #fff;animation:pulseb 1.6s ease-in-out infinite}
+@keyframes pulseb{50%{transform:scale(1.1)}}
+.repbig{width:clamp(130px,38vmin,230px);height:clamp(130px,38vmin,230px);border-radius:50%;background:#fde047;border:6px solid #f59e0b;font-size:clamp(4.5rem,22vmin,8rem);display:grid;place-items:center;box-shadow:0 8px 0 rgba(0,0,0,.2);animation:pulseb 1.6s ease-in-out infinite}
+.repbig:active{transform:translateY(4px);box-shadow:0 3px 0 rgba(0,0,0,.2)}
+.big{font-size:clamp(4rem,17vmin,8.5rem)}
+.ch .e{font-size:clamp(3.4rem,17vmin,7.5rem)}
+.ch{min-height:clamp(96px,19vh,170px)}
+.vc .e{font-size:clamp(2.8rem,13vmin,4.6rem)}
+.zi{height:1.3em;width:1.3em;vertical-align:-.25em}
 </style>
 </head>
 <body>
