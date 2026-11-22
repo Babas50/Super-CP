@@ -177,18 +177,8 @@ h3.sec{margin:10px 6px 6px;color:#fff;font-size:1.2rem;text-shadow:0 2px 0 rgba(
 .wrongt{background:#dc2626;color:#fff;border-radius:18px;padding:6px 14px;animation:shake .4s}
 .nxt{align-self:center;margin-top:14px;font-size:1.5rem;padding:16px 38px;animation:pop .45s;flex:none}
 .nxt:disabled{opacity:.6}
-.figbox{display:flex;justify-content:center;width:100%;flex:1;min-height:0}
-.vis:has(.figbox){min-height:0;padding:6px}
-.fig{height:auto;width:auto;max-width:100%;max-height:min(36vh,320px)}
-.figbox.big2{background:#fff;border-radius:26px;padding:6px;margin:0 0 10px;box-shadow:0 6px 0 rgba(0,0,0,.18);flex:none}
-.figbox.big2 .fig{max-height:min(44vh,400px)}
-.lb{cursor:pointer}.lb.on text{fill:#dc2626}.lb.on line{stroke-width:5}
-.arr{animation:blink 1s ease-in-out infinite}
-@keyframes blink{50%{opacity:.35}}
-.num{display:grid;place-items:center;width:clamp(44px,13vw,64px);height:clamp(44px,13vw,64px);border-radius:50%;color:#fff;font-size:clamp(1.6rem,7vw,2.4rem);font-weight:900}
-.btn.red{background:#ef4444}.btn.gray{background:#64748b}
-.hint{text-align:center;color:#fff;font-weight:800;font-size:.95rem;min-height:1.3em;text-shadow:0 2px 0 rgba(0,0,0,.25);padding:0 8px}
-.lyr .sub{font-size:.8rem;font-weight:700;color:#6b7280;padding:2px 12px}
+
+.zi{height:1.3em;width:1.3em;vertical-align:-.25em}
 </style>
 </head>
 <body>
@@ -208,8 +198,6 @@ h3.sec{margin:10px 6px 6px;color:#fff;font-size:1.2rem;text-shadow:0 2px 0 rgba(
 
 <div class="screen" id="game"></div>
 <div class="screen" id="levels"></div>
-<div class="screen" id="songs"></div>
-<div class="screen" id="song"></div>
 <div class="screen" id="album"></div>
 <div class="screen" id="learn"></div>
 <div class="screen end" id="end"></div>

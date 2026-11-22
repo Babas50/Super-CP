@@ -54,19 +54,6 @@ function say(t){
   if(!S.voice||!('speechSynthesis' in window)||!t)return;
   try{speechSynthesis.cancel();speechSynthesis.speak(utter(t,.85,1.1))}catch(e){}
 }
-function speakNow(t,cb,lang){
-  let done=false;const fin=()=>{if(!done){done=true;cb()}};
-  if(!('speechSynthesis' in window)){setTimeout(fin,2400);return}
-  try{
-    speechSynthesis.cancel();
-    let u;
-    if(lang==='en'){u=new SpeechSynthesisUtterance(t);u.lang='en-GB';u.rate=.75;u.pitch=1.15;if(enVoice)u.voice=enVoice}
-    else u=utter(t,.8,1.2);
-    u.onend=fin;u.onerror=fin;
-    speechSynthesis.speak(u);
-    setTimeout(fin,Math.max(3500,t.length*180));
-  }catch(e){setTimeout(fin,2400)}
-}
 function sayEn(t,rate=.8){
   if(!('speechSynthesis' in window)||!t)return;
   try{
@@ -78,67 +65,6 @@ function sayEn(t,rate=.8){
 }
 const speakL=(t,l)=>l==='en'?sayEn(t):say(t);
 
-/* ---------- melodies (WebAudio, style boite a musique) ---------- */
-const SEMI={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
-function nf(n){
-  const m=/^([A-G])([#b]?)(\d)$/.exec(n);if(!m)return 0;
-  const s=SEMI[m[1]]+(m[2]==='#'?1:m[2]==='b'?-1:0);
-  return 440*Math.pow(2,(s-9+12*(+m[3]-4))/12);
-}
-const parseTune=str=>str.trim().split(/\s+/).map(x=>{const p=x.split(':');return [p[0],p[1]?+p[1]:1]});
-let tuneTimers=[],tuneNodes=[];
-function stopTune(){
-  tuneTimers.forEach(clearTimeout);tuneTimers=[];
-  tuneNodes.forEach(o=>{try{o.stop()}catch(e){}});tuneNodes=[];
-}
-function playTune(t,onLine,onEnd){
-  stopTune();
-  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){ac=null}
-  const spb=60/t.bpm;let at=.2;
-  t.lines.forEach((ln,li)=>{
-    tuneTimers.push(setTimeout(()=>onLine(li),at*1000));
-    for(const [n,b] of parseTune(ln)){
-      const f=nf(n),d=b*spb;
-      if(f&&ac){
-        try{
-          const st=ac.currentTime+at,en=st+d*.92+.12;
-          const g=ac.createGain();g.gain.setValueAtTime(.0001,st);g.gain.linearRampToValueAtTime(.3,st+.02);g.gain.exponentialRampToValueAtTime(.001,en);
-          g.connect(ac.destination);
-          [['triangle',f,1],['sine',f*2,.35]].forEach(([ty,fr,k])=>{
-            const o=ac.createOscillator(),h=ac.createGain();o.type=ty;o.frequency.value=fr;h.gain.value=k;
-            o.connect(h);h.connect(g);o.start(st);o.stop(en+.05);tuneNodes.push(o);
-          });
-        }catch(e){}
-      }
-      at+=d;
-    }
-  });
-  tuneTimers.push(setTimeout(onEnd,(at+.4)*1000));
-}
-
-/* ---------- voix du parent : enregistrement local (IndexedDB), rien n'est envoye ---------- */
-function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('supercp-voix',1);r.onupgradeneeded=()=>r.result.createObjectStore('rec');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
-async function recGet(k){try{const d=await idb();return await new Promise(res=>{const q=d.transaction('rec').objectStore('rec').get(k);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)})}catch(e){return null}}
-async function recPut(k,v){const d=await idb();return new Promise((res,rej)=>{const t=d.transaction('rec','readwrite');t.objectStore('rec').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error)})}
-async function recDel(k){try{const d=await idb();return await new Promise(res=>{const t=d.transaction('rec','readwrite');t.objectStore('rec').delete(k);t.oncomplete=res;t.onerror=res})}catch(e){}}
-let MR=null,MS=null;
-function abortRec(){
-  try{if(MR&&MR.state!=='inactive'){MR.onstop=null;MR.stop()}}catch(e){}
-  try{MS&&MS.getTracks().forEach(t=>t.stop())}catch(e){}
-  MR=null;MS=null;
-}
-async function startRec(onData){
-  const st=await navigator.mediaDevices.getUserMedia({audio:true});
-  MS=st;
-  const types=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg'];
-  const mt=(window.MediaRecorder&&MediaRecorder.isTypeSupported)?types.find(t=>MediaRecorder.isTypeSupported(t)):'';
-  MR=mt?new MediaRecorder(st,{mimeType:mt}):new MediaRecorder(st);
-  const ch=[],mr=MR;
-  mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
-  mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());onData(new Blob(ch,{type:mr.mimeType||mt||'audio/webm'}))};
-  mr.start();
-}
-const endRec=()=>{try{MR&&MR.state!=='inactive'&&MR.stop()}catch(e){}};
 
 function confetti(n=60,x=innerWidth/2,y=innerHeight/3){
   const set=['🎉','⭐','✨','💖','🌈','🎈'];
@@ -152,6 +78,7 @@ function confetti(n=60,x=innerWidth/2,y=innerHeight/3){
   }
 }
 const show=id=>{document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id));return $('#'+id)};
+
 
 /* ---------- données ---------- */
 const W=[['🍎','pomme'],['🐱','chat'],['🌙','lune'],['🐟','poisson'],['🏠','maison'],['🌳','arbre'],['🚗','voiture'],['⭐','étoile'],['🍌','banane'],['🐶','chien'],['☀️','soleil'],['🍰','gâteau'],['🐘','éléphant'],['🦁','lion'],['🚲','vélo'],['🎈','ballon'],['📖','livre'],['🐸','grenouille'],['🍓','fraise'],['🌹','rose'],['🐢','tortue'],['🧀','fromage'],['🦋','papillon'],['🐻','ours'],['🍞','pain'],['🥕','carotte'],['🐴','cheval'],['🐭','souris'],['🦆','canard'],['👑','couronne'],['🎸','guitare'],['🍕','pizza'],['🚀','fusée'],['🐙','pieuvre'],['🦒','girafe'],['🐷','cochon']];
@@ -225,23 +152,17 @@ const MONDE=[
  ['Que fait-on avec un crayon ?','écrire',['manger','dormir','nager'],2],
  ['Quel est le plus grand animal de la mer ?','🐋',['🐟','🐙','🦀'],2]
 ];
-/* Comptines traditionnelles du domaine public */
-const SONGS=[
- {t:'Frère Jacques',e:'🔔',tune:{bpm:112,lines:['C4 D4 E4 C4 C4 D4 E4 C4','E4 F4 G4:2 E4 F4 G4:2','G4:.5 A4:.5 G4:.5 F4:.5 E4 C4 G4:.5 A4:.5 G4:.5 F4:.5 E4 C4','C4 G3 C4:2 C4 G3 C4:2']},lines:['Frère Jacques, Frère Jacques,','Dormez-vous ? Dormez-vous ?','Sonnez les matines ! Sonnez les matines !','Ding, daing, dong ! Ding, daing, dong !']},
- {t:'Au clair de la lune',e:'🌙',tune:{bpm:96,lines:['G4 G4 G4 A4 B4:2 A4:2','G4 B4 A4 A4 G4:3 r:1','G4 G4 G4 A4 B4:2 A4:2','G4 B4 A4 A4 G4:3 r:1','A4 A4 A4 A4 E4:2 E4:2','A4 G4 F#4 E4 D4:3 r:1','G4 G4 G4 A4 B4:2 A4:2','G4 B4 A4 A4 G4:3 r:1']},lines:['Au clair de la lune,','Mon ami Pierrot,','Prête-moi ta plume','Pour écrire un mot.','Ma chandelle est morte,','Je n\'ai plus de feu.','Ouvre-moi ta porte,','Pour l\'amour de Dieu.']},
- {t:'Sur le pont d\'Avignon',e:'🌉',tune:{bpm:200,lines:['F4 F4 F4:2 G4 G4 G4:2','A4 Bb4 C5 F4 E4 F4 G4 C4:2','F4 F4 F4:2 G4 G4 G4:2','A4 Bb4 C5 F4 G4 E4 F4:3 r:1']},lines:['Sur le pont d\'Avignon,','L\'on y danse, l\'on y danse,','Sur le pont d\'Avignon,','L\'on y danse tous en rond.']},
- {t:'Alouette',e:'🐦',lines:['Alouette, gentille alouette,','Alouette, je te plumerai.','Je te plumerai la tête,','Je te plumerai la tête,','Et la tête, et la tête,','Alouette, alouette, ah !']},
- {t:'Il pleut, bergère',e:'🌧️',lines:['Il pleut, il pleut, bergère,','Presse tes blancs moutons.','Allons sous la chaumière,','Bergère, vite, allons.','J\'entends sur le feuillage','L\'eau qui tombe à grand bruit.','Voici, voici l\'orage,','Voilà l\'éclair qui luit.']},
- {t:'Une souris verte',e:'🐭',lines:['Une souris verte','Qui courait dans l\'herbe,','Je l\'attrape par la queue,','Je la montre à ces messieurs.','Ces messieurs me disent :','Trempez-la dans l\'huile,','Trempez-la dans l\'eau,','Ça fera un escargot tout chaud.']},
- {t:'Ainsi font, font, font',e:'🎭',lines:['Ainsi font, font, font','Les petites marionnettes,','Ainsi font, font, font,','Trois p\'tits tours et puis s\'en vont.']},
- {t:'Savez-vous planter les choux',e:'🥬',lines:['Savez-vous planter les choux,','À la mode, à la mode,','Savez-vous planter les choux,','À la mode de chez nous ?','On les plante avec le doigt,','À la mode, à la mode,','On les plante avec le doigt,','À la mode de chez nous.']},
- {t:'Mon beau sapin',e:'🎄',lines:['Mon beau sapin, roi des forêts,','Que j\'aime ta verdure.','Quand par l\'hiver, bois et guérets','Sont dépouillés de leurs attraits,','Mon beau sapin, roi des forêts,','Tu gardes ta parure.']},
- {t:'Meunier, tu dors',e:'🌾',lines:['Meunier, tu dors,','Ton moulin va trop vite.','Meunier, tu dors,','Ton moulin va trop fort.','Ton moulin, ton moulin','Va trop vite.','Ton moulin, ton moulin','Va trop fort.']},
- {t:'Twinkle, twinkle',e:'⭐',en:1,tune:{bpm:100,lines:['C4 C4 G4 G4 A4 A4 G4:2','F4 F4 E4 E4 D4 D4 C4:2','G4 G4 F4 F4 E4 E4 D4:2','G4 G4 F4 F4 E4 E4 D4:2','C4 C4 G4 G4 A4 A4 G4:2','F4 F4 E4 E4 D4 D4 C4:2']},lines:['Twinkle, twinkle, little star,','How I wonder what you are.','Up above the world so high,','Like a diamond in the sky.','Twinkle, twinkle, little star,','How I wonder what you are.']},
- {t:'Row, row, row your boat',e:'🚣',en:1,tune:{bpm:130,lines:['C4 C4 C4:.75 D4:.25 E4:2','E4:.75 D4:.25 E4:.75 F4:.25 G4:2','C5:.333 C5:.333 C5:.333 G4:.333 G4:.333 G4:.333 E4:.333 E4:.333 E4:.333 C4:.333 C4:.333 C4:.333','G4:.75 F4:.25 E4:.75 D4:.25 C4:2']},lines:['Row, row, row your boat,','Gently down the stream.','Merrily, merrily, merrily, merrily,','Life is but a dream.']},
- {t:'Old MacDonald',e:'🐮',en:1,tune:{bpm:112,lines:['G4 G4 G4 D5 E5 E5 D5:2','B4 B4 A4 A4 G4:2 r:2']},lines:['Old MacDonald had a farm,','E-I-E-I-O.']}
-];
-/* [anglais, francais, emoji, theme] */
+/* icones des parties du corps sans emoji : silhouette grise, zone en couleur */
+const zi=z=>`<svg class='zi' viewBox='0 0 64 64' aria-hidden='true'><g fill='#94a3b8'><circle cx='32' cy='11' r='7'/><rect x='29' y='16' width='6' height='5'/><rect x='19' y='20' width='26' height='22' rx='6'/><path d='M21 23L11 39M43 23L53 39M27 42L26 60M37 42L38 60' stroke='#94a3b8' stroke-width='6' stroke-linecap='round' fill='none'/></g>${z}</svg>`;
+const ZI={
+ head:zi("<circle cx='32' cy='11' r='8' fill='#f97316' stroke='#fff' stroke-width='2'/>"),
+ hair:zi("<path d='M24 11A8 8 0 0 1 40 11Z' fill='#f97316' stroke='#fff' stroke-width='2'/>"),
+ neck:zi("<rect x='28' y='15' width='8' height='7' rx='2' fill='#f97316' stroke='#fff' stroke-width='2'/>"),
+ shoulder:zi("<circle cx='22' cy='24' r='6' fill='#f97316' stroke='#fff' stroke-width='2'/><circle cx='42' cy='24' r='6' fill='#f97316' stroke='#fff' stroke-width='2'/>"),
+ tummy:zi("<ellipse cx='32' cy='33' rx='10' ry='7.5' fill='#f97316' stroke='#fff' stroke-width='2'/>"),
+ knee:zi("<circle cx='26.5' cy='51' r='5' fill='#f97316' stroke='#fff' stroke-width='2'/><circle cx='37.5' cy='51' r='5' fill='#f97316' stroke='#fff' stroke-width='2'/>")
+};
+/* [anglais, francais, emoji ou icone, theme] */
 const VOC=[
  ['cat','chat','🐱','animals'],['dog','chien','🐶','animals'],['fish','poisson','🐟','animals'],['bird','oiseau','🐦','animals'],
  ['horse','cheval','🐴','animals'],['pig','cochon','🐷','animals'],['cow','vache','🐮','animals'],['duck','canard','🦆','animals'],
@@ -256,7 +177,7 @@ const VOC=[
  ['carrot','carotte','🥕','food'],['ice cream','glace','🍦','food'],
  ['mum','maman','👩','family'],['dad','papa','👨','family'],['baby','bébé','👶','family'],['girl','fille','👧','family'],['boy','garçon','👦','family'],
  ['grandma','mamie','👵','family'],['grandpa','papi','👴','family'],
- ['hand','main','✋','body'],['head','tête','📍','body',1],['hair','cheveux','📍','body',1],['neck','cou','📍','body',1],['shoulder','épaule','📍','body',1],['tummy','ventre','📍','body',1],['knee','genou','📍','body',1],['eye','œil','👁️','body'],['ear','oreille','👂','body'],['nose','nez','👃','body'],['mouth','bouche','👄','body'],['foot','pied','🦶','body'],
+ ['hand','main','✋','body'],['head','tête',ZI.head,'body'],['hair','cheveux',ZI.hair,'body'],['neck','cou',ZI.neck,'body'],['shoulder','épaule',ZI.shoulder,'body'],['tummy','ventre',ZI.tummy,'body'],['knee','genou',ZI.knee,'body'],['eye','œil','👁️','body'],['ear','oreille','👂','body'],['nose','nez','👃','body'],['mouth','bouche','👄','body'],['foot','pied','🦶','body'],
  ['arm','bras','💪','body'],['leg','jambe','🦵','body'],['finger','doigt','☝️','body'],['thumb','pouce','👍','body'],['tooth','dent','🦷','body'],['tongue','langue','👅','body'],['brain','cerveau','🧠','body'],['bone','os','🦴','body'],['heart','cœur','❤️','body'],
  ['house','maison','🏠','objects'],['car','voiture','🚗','objects'],['book','livre','📖','objects'],['ball','ballon','⚽','objects'],['tree','arbre','🌳','objects'],
  ['sun','soleil','☀️','objects'],['moon','lune','🌙','objects'],['star','étoile','⭐','objects'],['flower','fleur','🌸','objects'],['bike','vélo','🚲','objects'],
@@ -271,7 +192,7 @@ const SENT_EN=[
  ['I am happy','Je suis content','😀',0],['I am hungry','J\'ai faim','🍽️',0],['Good night','Bonne nuit','😴',0],['Thank you','Merci','🙏',0],
  ['Good morning','Bonjour','🌅',0],['Happy birthday','Joyeux anniversaire','🎂',0],['I love you','Je t\'aime','❤️',0],['How are you','Comment vas-tu','🙂',0]
 ];
-const VP=VOC.filter(v=>!v[4]);
+const VP=VOC;
 const THEMES=[['animals','Animaux','🐾'],['colors','Couleurs','🎨'],['numbers','Nombres','🔢'],['food','Nourriture','🍎'],['family','Famille','👨‍👩‍👧'],['body','Corps','🖐️'],['objects','Objets','🏠'],['feelings','Émotions','😀']];
 const STICKERS=['🦄','🐉','🐬','🦖','🐼','🐨','🦉','🐯','🦜','🐞','🌈','🚒','🚁','🏰','🎠','🎨','🎹','⚽','🍦','🧁','🎺','🛸','🚂','🏆'];
 const praise=['Bravo !','Super !','Génial !','Bien joué !','Oui !','Top !'];
@@ -423,31 +344,6 @@ function mkMonde(i,L){
     choices:ch.map(a=>({h:isEmoji(a)?`<span class="e">${a}</span>`:`<b>${a}</b>`,ok:a===q[1],t:!isEmoji(a),say:isEmoji(a)?undefined:a})),cols:2};
 }
 
-/* ---------- comptines : mots manquants ---------- */
-const cleanW=t=>t.replace(/[.,;:!?«»"“”()]/g,'');
-function clozeSpots(s){
-  const out=[];
-  s.lines.forEach((ln,li)=>ln.split(' ').forEach((tok,wi)=>{
-    const c=cleanW(tok);
-    if(c.length>=4&&!/['’-]/.test(c))out.push({li,wi,c});
-  }));
-  return out;
-}
-function mkCloze(s){
-  const spots=clozeSpots(s),sp=spots[rnd(spots.length)];
-  const toks=s.lines[sp.li].split(' ');
-  const cap=w=>sp.wi===0?w[0].toUpperCase()+w.slice(1):w.toLowerCase();
-  const ans=cap(sp.c);
-  const others=[...new Set(spots.map(x=>cap(x.c)))].filter(w=>w.toLowerCase()!==ans.toLowerCase());
-  const extra=(s.en?['house','garden','river','music','night']:['maison','soleil','jardin','lumière','chanson']).map(cap).filter(w=>!others.includes(w)&&w!==ans);
-  const ch=[ans,...pick(others,2),...extra].slice(0,3);
-  while(ch.length<3)ch.push(extra[ch.length]||(s.en?'cloud':'nuage'));
-  const shown=toks.map((t,k)=>k===sp.wi?t.replace(sp.c,'_____'):t).join(' ');
-  return {key:sp.li+':'+sp.wi,lang:s.en?'en':undefined,say:s.en?'Find the missing word.':'Trouve le mot qui manque dans la comptine.',sayOk:s.lines[sp.li],title:s.en?'Which word is missing?':'Quel est le mot qui manque ?',
-    vis:`<div style="font-size:3rem">${s.e}</div><div class="sent">${shown}</div>`,
-    choices:shuffle(ch).map(w=>({h:`<b>${w}</b>`,ok:w===ans,t:1,say:w,lang:s.en?'en':undefined})),cols:1};
-}
-
 /* ---------- anglais ---------- */
 const poolL=L=>VP.filter(v=>L===0?['animals','colors'].includes(v[3]):L===1?['animals','colors','numbers','food','family','body'].includes(v[3]):true);
 function distract(w,pool,n,L){
@@ -504,80 +400,14 @@ function finishPractice(){
   sfx.win();confetti(30);
 }
 
-/* ---------- le corps : bonhomme avec fleches ---------- */
-/* [anglais, francais, x, y de la pointe, cote, y de l'etiquette] (coordonnees du dessin, decalage +20 ajoute au trace) */
-const BP={
- hair:['hair','cheveux',140,46,'l',40],eye:['eye','œil',158,95,'l',82],ear:['ear','oreille',110,102,'l',124],shoulder:['shoulder','épaule',134,186,'l',176],
- hand:['hand','main',92,296,'l',290],knee:['knee','genou',146,358,'l',352],foot:['foot','pied',130,410,'l',410],
- head:['head','tête',212,78,'r',40],nose:['nose','nez',182,113,'r',82],mouth:['mouth','bouche',194,135,'r',124],neck:['neck','cou',190,163,'r',166],
- arm:['arm','bras',247,238,'r',212],tummy:['tummy','ventre',190,242,'r',262],leg:['leg','jambe',210,384,'r',336]
-};
-const BKEYS=Object.keys(BP),BSH=20,NUMC=['#ef4444','#3b82f6','#16a34a','#f59e0b'];
-function bodySVG(o={}){
-  const sk='#ffd9b3',ol='#7c4a1e';
-  let ov='';
-  if(o.all){
-    ov=BKEYS.map(k=>{
-      const p=BP[k],L=p[4]==='l',lx=L?86:294,tx=p[2]+BSH;
-      return `<g class="lb" data-p="${k}"><rect x="${L?0:290}" y="${p[5]-15}" width="90" height="30" fill="transparent"/><line x1="${lx}" y1="${p[5]}" x2="${tx}" y2="${p[3]}" stroke="#ef4444" stroke-width="3" marker-end="url(#ah)"/><text x="${L?3:377}" y="${p[5]+6}" text-anchor="${L?'start':'end'}" font-size="19" font-weight="900" fill="#4c1d95" stroke="#fff" stroke-width="4" paint-order="stroke">${p[0]}</text></g>`;
-    }).join('');
-  }
-  if(o.only){
-    const p=BP[o.only],L=p[4]==='l';
-    ov=`<line x1="${L?30:350}" y1="${p[3]}" x2="${p[2]+BSH+(L?-4:4)}" y2="${p[3]}" stroke="#ef4444" stroke-width="7" stroke-linecap="round" marker-end="url(#ah2)" class="arr"/>`;
-  }
-  if(o.marks){
-    ov=o.marks.map((k,n)=>`<circle cx="${BP[k][2]+BSH}" cy="${BP[k][3]}" r="14" fill="${NUMC[n]}" stroke="#fff" stroke-width="3"/><text x="${BP[k][2]+BSH}" y="${BP[k][3]+6}" text-anchor="middle" font-size="18" font-weight="900" fill="#fff">${n+1}</text>`).join('');
-  }
-  return `<svg viewBox="0 0 380 440" class="fig" role="img" aria-label="Un enfant dessiné">
-  <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#ef4444"/></marker><marker id="ah2" markerWidth="5" markerHeight="5" refX="3.5" refY="2.5" orient="auto"><path d="M0 0L5 2.5L0 5Z" fill="#ef4444"/></marker></defs>
-  <g transform="translate(${BSH},0)" stroke="${ol}" stroke-width="2" stroke-linejoin="round">
-   <line x1="155" y1="322" x2="152" y2="395" stroke="${sk}" stroke-width="22" stroke-linecap="round"/><line x1="205" y1="322" x2="208" y2="395" stroke="${sk}" stroke-width="22" stroke-linecap="round"/>
-   <ellipse cx="146" cy="408" rx="24" ry="11" fill="#ef4444"/><ellipse cx="214" cy="408" rx="24" ry="11" fill="#ef4444"/>
-   <circle cx="153" cy="358" r="11" fill="#f5c28f"/><circle cx="207" cy="358" r="11" fill="#f5c28f"/>
-   <rect x="134" y="288" width="92" height="38" rx="9" fill="#f59e0b"/>
-   <line x1="130" y1="192" x2="98" y2="282" stroke="#3b82f6" stroke-width="22" stroke-linecap="round"/><line x1="230" y1="192" x2="262" y2="282" stroke="#3b82f6" stroke-width="22" stroke-linecap="round"/>
-   <circle cx="96" cy="294" r="13" fill="${sk}"/><circle cx="264" cy="294" r="13" fill="${sk}"/>
-   <rect x="130" y="172" width="100" height="120" rx="24" fill="#3b82f6"/><circle cx="180" cy="242" r="4" fill="#1e3a8a" stroke="none"/>
-   <rect x="168" y="150" width="24" height="26" fill="${sk}"/>
-   <circle cx="118" cy="102" r="11" fill="${sk}"/><circle cx="242" cy="102" r="11" fill="${sk}"/>
-   <circle cx="180" cy="95" r="60" fill="${sk}"/>
-   <path d="M120 92Q118 30 180 32Q242 30 240 92Q226 64 202 60Q176 72 150 60Q128 68 120 92Z" fill="#5b3a1e"/>
-   <circle cx="158" cy="97" r="9" fill="#fff"/><circle cx="202" cy="97" r="9" fill="#fff"/><circle cx="160" cy="98" r="4.5" fill="#111" stroke="none"/><circle cx="204" cy="98" r="4.5" fill="#111" stroke="none"/>
-   <circle cx="180" cy="113" r="6" fill="#f9a8a8"/>
-   <path d="M160 131Q180 150 200 131" fill="none" stroke="#dc2626" stroke-width="4" stroke-linecap="round"/>
-  </g>${ov}</svg>`;
-}
-function farEnough(ms){
-  for(let a=0;a<ms.length;a++)for(let b=a+1;b<ms.length;b++){
-    const p=BP[ms[a]],q=BP[ms[b]];if(Math.hypot(p[2]-q[2],p[3]-q[3])<34)return false;
-  }
-  return true;
-}
-const BP0=['head','eye','nose','mouth','hand','foot','arm','leg'];
-function mkEnCorps(i,L){
-  if(L===2){
-    const w=BKEYS[rnd(BKEYS.length)];let ms,t=0;
-    do{ms=shuffle([w,...pick(BKEYS.filter(x=>x!==w),3)]);t++}while(t<80&&!farEnough(ms));
-    return {key:w,lang:'en',say:BP[w][0],title:'Écoute, puis touche le bon numéro',
-      vis:`<div class="figbox">${bodySVG({marks:ms})}</div>`,
-      choices:ms.map((k,n)=>({h:`<span class="num" style="background:${NUMC[n]}">${n+1}</span>`,ok:k===w,say:BP[w][0],lang:'en'})),cols:4};
-  }
-  const pool=L===0?BP0:BKEYS,w=pool[rnd(pool.length)],n=L===0?3:4;
-  return {key:w,lang:'en',say:'',title:'Que montre la flèche ?',
-    vis:`<div class="figbox">${bodySVG({only:w})}</div>`,
-    choices:shuffle([w,...pick(pool.filter(x=>x!==w),n-1)]).map(x=>({h:`<b>${BP[x][0]}</b>`,ok:x===w,t:1,say:BP[x][0],lang:'en'})),cols:n===3?1:2};
-}
 function learnScreen(th){
   stopSong();
   const el=show('learn'),items=VOC.filter(v=>v[3]===th);
   el.innerHTML=`<div class="wrap"><div class="bar"><button class="ib" id="lb">🏠</button><div class="title" style="flex:1;margin:0">📒 Mes mots anglais</div><span class="ib" style="visibility:hidden"></span></div>
   <div class="tabs">${THEMES.map(t=>`<button class="tab${t[0]===th?' on':''}" data-t="${t[0]}">${t[2]}<small>${t[1]}</small></button>`).join('')}</div>
-  ${th==='body'?`<div class="figbox big2">${bodySVG({all:true})}</div>`:''}
   <div class="vgrid">${items.map((v,k)=>`<button class="vc" data-k="${k}"><span class="e">${v[2]}</span><b>${v[0]}</b><small>${v[1]}</small></button>`).join('')}</div>
-  <div class="foot" style="margin:6px 0 0">Touche une carte${th==='body'?' ou un mot du dessin':''} pour entendre le mot</div></div>`;
+  <div class="foot" style="margin:6px 0 0">Touche une carte pour entendre le mot</div></div>`;
   $('#lb').onclick=home;
-  el.querySelectorAll('.lb').forEach(g=>g.onclick=()=>{sfx.tap();sayEn(BP[g.dataset.p][0],.8);el.querySelectorAll('.lb').forEach(x=>x.classList.toggle('on',x===g))});
   el.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{sfx.tap();learnScreen(b.dataset.t)});
   el.querySelectorAll('.vc').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('.vc').forEach(x=>x.classList.remove('on'));b.classList.add('on');
@@ -590,7 +420,6 @@ const ACT=[
  {id:'lettres',name:'Les lettres',ic:'🔤',cat:'Lecture',bg:'#f97316,#fb923c',make:mkLettres,lv:['Reconnaître une lettre (3 choix)','Reconnaître une lettre (4 choix)','Écrire des mots lettre par lettre']},
  {id:'syllabes',name:'Les syllabes',ic:'🧩',cat:'Lecture',bg:'#ec4899,#f472b6',make:mkSyll,lv:['Mots de 2 syllabes','Mots de 2 et 3 syllabes','Longs mots avec syllabes en trop']},
  {id:'mots',name:'Lire des mots',ic:'📖',cat:'Lecture',bg:'#8b5cf6,#a78bfa',make:mkMots,lv:['Mots courts','Tous les mots','Lire des phrases']},
- {id:'comptines',name:'Comptines',ic:'🎵',cat:'Lecture',bg:'#f43f5e,#fb7185',songs:true},
  {id:'compter',name:'Compter',ic:'🍎',cat:'Maths',bg:'#22c55e,#4ade80',make:mkCompter,lv:['Jusqu\'à 9','Jusqu\'à 14','Jusqu\'à 20']},
  {id:'add',name:'Additions',ic:'➕',cat:'Maths',bg:'#3b82f6,#60a5fa',make:mkAdd,lv:['Résultat jusqu\'à 10','Résultat jusqu\'à 20','Trouver le nombre qui manque']},
  {id:'sous',name:'Soustractions',ic:'➖',cat:'Maths',bg:'#06b6d4,#22d3ee',make:mkSous,lv:['Jusqu\'à 10','Jusqu\'à 20','Grands nombres et nombre manquant']},
@@ -601,7 +430,6 @@ const ACT=[
  {id:'en_learn',name:'Mes mots anglais',ic:'📒',cat:'Anglais',bg:'#0ea5e9,#38bdf8',learn:true},
  {id:'en_ecoute',name:'Écoute et trouve',ic:'👂',cat:'Anglais',bg:'#6366f1,#818cf8',make:mkEnEcoute,lv:['Animaux et couleurs','Plus de mots : nombres, nourriture...','Écouter des phrases']},
  {id:'en_mots',name:'Dis-le en anglais',ic:'🏷️',cat:'Anglais',bg:'#10b981,#34d399',make:mkEnMots,lv:['Image vers mot (animaux, couleurs)','Image vers mot (plus de mots)','Mot anglais vers français']},
- {id:'en_corps',name:'Le corps (dessin)',ic:'🧒',cat:'Anglais',bg:'#f59e0b,#fbbf24',make:mkEnCorps,lv:['8 parties du corps (3 choix)','Toutes les parties (4 choix)','Écouter et toucher le bon numéro']},
  {id:'en_repete',name:'Écoute et répète',ic:'🗣️',cat:'Anglais',bg:'#f43f5e,#fb7185',make:mkEnRepete,speak:true,lv:['Mots simples','Plus de mots','Phrases courtes']}
 ];
 const LV_ICON=['🌱','🌟','🚀'];
@@ -612,8 +440,7 @@ const sumStars=a=>[0,1,2].reduce((t,L)=>t+(S.st[a.id+':'+L]||0),0);
 const totalStars=()=>Object.values(S.st).reduce((t,v)=>t+v,0);
 const unlocked=()=>Math.min(STICKERS.length,Math.floor(S.pts/10));
 let playTok=0;
-function stopSong(){playTok++;try{speechSynthesis.cancel()}catch(e){}stopTune();abortRec();if(voxAudio){try{voxAudio.pause()}catch(e){}voxAudio=null}clearInterval(voxTm)}
-let voxAudio=null,voxTm=null;
+function stopSong(){playTok++;try{speechSynthesis.cancel()}catch(e){}}
 function home(){
   stopSong();
   show('home');
@@ -623,7 +450,7 @@ function home(){
   for(const cat of ['Lecture','Maths','Découverte','Anglais']){
     h+=`<h3 class="sec">${CATI[cat]} ${cat==='Anglais'?'Anglais (English)':cat}</h3><div class="tiles">`;
     for(const a of ACT.filter(x=>x.cat===cat)){
-      const st=a.learn?'Découvrir':a.speak?'Sans note':a.songs?`${SONGS.filter((s,k)=>S.st['ct'+k+':0']).length}/${SONGS.length} chantées`:`⭐ ${sumStars(a)}/9`;
+      const st=a.learn?'Découvrir':a.speak?'Sans note':`⭐ ${sumStars(a)}/9`;
       h+=`<button class="tile" data-id="${a.id}" style="background:linear-gradient(160deg,${a.bg})"><span class="ic">${a.ic}</span><span class="nm">${a.name}</span><span class="st">${st}</span></button>`;
     }
     h+='</div>';
@@ -632,7 +459,7 @@ function home(){
   $('#tot').textContent='⭐ '+totalStars();
   $('#menu').querySelectorAll('.tile').forEach(b=>b.onclick=()=>{
     sfx.tap();const a=ACT.find(x=>x.id===b.dataset.id);
-    a.songs?songsList():a.learn?learnScreen('animals'):levelScreen(a);
+    a.learn?learnScreen('animals'):levelScreen(a);
   });
   $('#tv').classList.toggle('off',!S.voice);
   $('#ts').classList.toggle('off',!S.sound);
@@ -809,121 +636,6 @@ function album(){
   <div class="title" style="font-size:1.05rem">${n}/${STICKERS.length} · ${n<STICKERS.length?`encore ${need} point${need>1?'s':''} pour le prochain`:'Bravo, album complet !'}</div>
   <div class="album">${STICKERS.map((s,k)=>`<div class="stk${k<n?'':' lock'}">${k<n?s:'🔒'}</div>`).join('')}</div></div>`;
   $('#ab').onclick=home;
-}
-
-/* ---------- comptines ---------- */
-function songsList(){
-  stopSong();
-  const el=show('songs');
-  const tile=(s,k)=>`<button class="tile" data-k="${k}" style="background:linear-gradient(160deg,${s.en?'#0ea5e9,#6366f1':'#f43f5e,#fb923c'})"><span class="ic">${s.e}</span><span class="nm">${s.t}</span><span class="st">${s.tune?'🎼 ':''}${starsHtml(S.st['ct'+k+':0']||0)}</span></button>`;
-  el.innerHTML=`<div class="wrap"><div class="bar"><button class="ib" id="sb">🏠</button><div class="title" style="flex:1;margin:0">🎵 Comptines</div><span class="ib" style="visibility:hidden"></span></div>
-  <h3 class="sec">🇫🇷 En français</h3><div class="sg">${SONGS.map((s,k)=>s.en?'':tile(s,k)).join('')}</div>
-  <h3 class="sec">🇬🇧 In English</h3><div class="sg">${SONGS.map((s,k)=>s.en?tile(s,k):'').join('')}</div>
-  <div class="foot" style="margin:8px 0 0">🎼 = la mélodie est jouée par l'appli. Les parents peuvent aussi enregistrer leur voix.</div></div>`;
-  $('#sb').onclick=home;
-  el.querySelectorAll('.tile').forEach(b=>b.onclick=()=>{sfx.tap();songView(+b.dataset.k)});
-}
-function songView(k){
-  stopSong();
-  const s=SONGS[k],el=show('song'),en=!!s.en,key=s.t;
-  el.innerHTML=`<div class="wrap"><div class="bar"><button class="ib" id="sb">⬅️</button><div class="title" style="flex:1;margin:0">${s.e} ${s.t}</div><span class="ib" style="visibility:hidden"></span></div>
-  <div class="lyr" id="lyr">${s.lines.map(l=>`<div class="ln">${l}</div>`).join('')}</div>
-  <div class="hint" id="hint"></div>
-  <div class="btns" id="b1">${s.tune?'<button class="btn a" id="mel">🎼 Mélodie</button>':''}<button class="btn b" id="play">🗣️ ${en?'Lire (voix)':'Lire à voix haute'}</button></div>
-  <div class="btns" id="b2"></div>
-  <div class="btns"><button class="btn c" id="quiz">🎯 ${en?'Missing words':'Mots manquants'}</button></div></div>`;
-  const lines=[...el.querySelectorAll('.ln')],hint=$('#hint');
-  let mode=null,saved=null,t0=0,marks=[],cur=-1;
-  const hl=i=>{cur=i;lines.forEach((l,j)=>l.classList.toggle('on',j===i));if(i>=0&&lines[i])lines[i].scrollIntoView({block:'center',behavior:'smooth'})};
-  const labels=()=>{const m=$('#mel');if(m)m.textContent=mode==='mel'?'⏹ Stop':'🎼 Mélodie';$('#play').textContent=mode==='say'?'⏹ Stop':('🗣️ '+(en?'Lire (voix)':'Lire à voix haute'))};
-  const halt=()=>{mode=null;stopSong();hl(-1);labels();hint.textContent=''};
-  const done=()=>{if(mode==='mel'||mode==='say'||mode==='vox'){mode=null;labels();hl(-1);parent()}};
-  const parent=()=>{
-    const b2=$('#b2');
-    if(mode==='rec'){
-      b2.innerHTML=`<button class="btn red" id="rs">⏹ Terminer</button><button class="btn b" id="rn">➡️ Ligne suivante</button>`;
-      $('#rs').onclick=()=>{endRec()};
-      $('#rn').onclick=()=>{sfx.tap();if(cur<lines.length-1){marks[cur+1]=(performance.now()-t0)/1000;hl(cur+1)}};
-      return;
-    }
-    if(!saved){
-      b2.innerHTML=`<button class="btn red" id="rc">🎙️ Enregistrer ma voix</button>`;
-    }else{
-      b2.innerHTML=`<button class="btn a" id="pv">${mode==='vox'?'⏹ Stop':'▶ Écouter ma voix'}</button><button class="btn gray" id="rc">🔁 Refaire</button><button class="btn gray" id="rd" title="Supprimer">🗑️</button>`;
-      $('#pv').onclick=playVox;
-      $('#rd').onclick=async()=>{halt();await recDel(key);saved=null;hint.textContent='Enregistrement supprimé.';parent()};
-    }
-    $('#rc').onclick=beginRec;
-  };
-  const refresh=async()=>{saved=await recGet(key);if(!mode)parent()};
-  function playVox(){
-    if(mode==='vox'){halt();parent();return}
-    halt();mode='vox';
-    const blob=new Blob([saved.buf],{type:saved.type});
-    const au=new Audio(URL.createObjectURL(blob));voxAudio=au;
-    const dur=saved.dur||1,mk=saved.marks&&saved.marks.length>1?saved.marks:null;
-    const startOf=i=>{
-      if(mk&&mk[i]!=null)return mk[i];
-      const tot=s.lines.reduce((t,l)=>t+l.length,0);let c=0;for(let j=0;j<i;j++)c+=s.lines[j].length;return dur*c/tot;
-    };
-    const upd=()=>{
-      const t=au.currentTime;let idx=0;
-      for(let i=0;i<lines.length;i++)if(t>=startOf(i)-.05)idx=i;
-      if(idx!==cur)hl(idx);
-    };
-    au.onended=()=>{clearInterval(voxTm);done()};
-    au.onerror=()=>{clearInterval(voxTm);halt();hint.textContent='Impossible de lire cet enregistrement.';parent()};
-    voxTm=setInterval(upd,120);
-    au.play().then(()=>{hl(0);labels();parent()}).catch(()=>{halt();hint.textContent='Lecture bloquée : touche à nouveau.';parent()});
-  }
-  async function beginRec(){
-    halt();
-    if(!navigator.mediaDevices||!window.MediaRecorder){hint.textContent='Cet appareil ne sait pas enregistrer la voix.';return}
-    try{
-      mode='rec';marks=[0];
-      await startRec(async blob=>{
-        const dur=(performance.now()-t0)/1000;
-        const wasRec=mode==='rec';mode=null;hl(-1);
-        if(!wasRec)return;
-        if(!blob.size||dur<.8){hint.textContent='Enregistrement trop court, recommence.';await refresh();return}
-        const buf=await blob.arrayBuffer();
-        try{await recPut(key,{buf,type:blob.type,dur,marks:marks.slice()});hint.textContent='Enregistré sur cet appareil. Rien n\'est envoyé.'}
-        catch(e){hint.textContent='Impossible d\'enregistrer (stockage plein ou bloqué).'}
-        await refresh();
-      });
-      t0=performance.now();hl(0);parent();
-      hint.textContent='Chante en suivant les paroles. Touche ➡️ au début de chaque ligne.';
-    }catch(e){
-      mode=null;abortRec();hl(-1);
-      hint.textContent=(e&&e.name==='NotAllowedError')?'Micro bloqué : autorise-le dans les réglages du navigateur.':'Micro indisponible sur cet appareil.';
-      parent();
-    }
-  }
-  $('#sb').onclick=()=>{halt();songsList()};
-  const mel=$('#mel');
-  if(mel)mel.onclick=()=>{
-    if(mode==='mel'){halt();parent();return}
-    halt();mode='mel';labels();parent();
-    playTune(s.tune,i=>{if(mode==='mel')hl(i)},done);
-  };
-  $('#play').onclick=()=>{
-    if(mode==='say'){halt();parent();return}
-    halt();mode='say';labels();parent();
-    const tok=++playTok;let i=0;
-    const step=()=>{
-      if(tok!==playTok||mode!=='say')return;
-      if(i>=lines.length){done();return}
-      hl(i);
-      speakNow(s.lines[i],()=>{if(tok!==playTok)return;i++;setTimeout(step,250)},en?'en':'fr');
-    };
-    step();
-  };
-  $('#quiz').onclick=()=>{
-    halt();sfx.tap();
-    const act={id:'ct'+k,name:s.t,ic:s.e,make:()=>mkCloze(s)};
-    start(act,0,{rounds:Math.min(5,clozeSpots(s).length),back:()=>songView(k)});
-  };
-  refresh();
 }
 
 /* ---------- installation PWA ---------- */

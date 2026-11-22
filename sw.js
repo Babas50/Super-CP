@@ -1,4 +1,4 @@
-const C = 'super-cp-v5';
+const C = 'super-cp-v6';
 const FILES = ['./', 'index.html', 'app.js', 'manifest.json', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];
 
 self.addEventListener('install', e => {
