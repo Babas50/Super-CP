@@ -74,7 +74,7 @@ function confetti(n=60,x=innerWidth/2,y=innerHeight/3){
     p.style.setProperty('--dx',(rnd(500)-250)+'px');
     p.style.setProperty('--dy',(rnd(450)-150)+'px');
     p.style.setProperty('--r',(rnd(720)-360)+'deg');
-    document.body.appendChild(p);setTimeout(()=>p.remove(),1600);
+    (document.getElementById('cfbox')||document.body).appendChild(p);setTimeout(()=>p.remove(),1600);
   }
 }
 const show=id=>{document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id));return $('#'+id)};

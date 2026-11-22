@@ -14,15 +14,17 @@
 <link rel="icon" href="icons/icon-192.png">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-html,body{margin:0;height:100%;overflow:hidden}
+html,body{margin:0;height:100%;overflow:hidden;max-width:100%;touch-action:pan-y;overscroll-behavior:none}
+#cfbox{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:50}
+.tabs{touch-action:pan-x}
 body{font-family:"Baloo 2","Fredoka","Chalkboard SE","Comic Sans MS","Trebuchet MS",system-ui,sans-serif;color:#3b1d6e;
   background:linear-gradient(160deg,#a78bfa 0%,#60a5fa 45%,#34d399 100%);}
-body::before,body::after{content:"☁️";position:fixed;font-size:90px;opacity:.55;animation:drift 40s linear infinite;pointer-events:none;z-index:0}
-body::before{top:6%;left:-120px}
-body::after{top:62%;left:-120px;animation-duration:55s;animation-delay:-20s;font-size:70px}
-@keyframes drift{to{transform:translateX(calc(100vw + 240px))}}
+body::before,body::after{content:"☁️";position:fixed;font-size:90px;opacity:.55;animation:drift 40s linear infinite alternate;pointer-events:none;z-index:0}
+body::before{top:6%;left:0}
+body::after{top:62%;left:0;animation-duration:55s;animation-delay:-20s;font-size:70px}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(calc(100vw - 150px))}}
 button{font:inherit;color:inherit;border:0;cursor:pointer}
-.screen{z-index:1;position:fixed;inset:0;display:none;flex-direction:column;align-items:center;padding:max(10px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));overflow-y:auto}
+.screen{z-index:1;position:fixed;inset:0;display:none;flex-direction:column;align-items:center;padding:max(10px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden}
 .screen.on{display:flex}
 .wrap{width:100%;max-width:760px;display:flex;flex-direction:column;flex:1;min-height:0}
 
@@ -212,6 +214,7 @@ h3.sec{margin:10px 6px 6px;color:#fff;font-size:1.2rem;text-shadow:0 2px 0 rgba(
   <div class="foot">Fonctionne sans internet. Aucune pub, aucune donnée envoyée.</div>
 </div></div>
 
+<div id="cfbox"></div>
 <div class="screen" id="game"></div>
 <div class="screen" id="levels"></div>
 <div class="screen" id="album"></div>
